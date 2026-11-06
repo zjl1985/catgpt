@@ -3,14 +3,20 @@ import { icon } from './icons';
 import type { IconName } from './icons';
 import { REPLY, escapeHtml, loadChats, readSetting, saveChats, writeSetting } from './store';
 import type { Chat } from './store';
+import { getLanguage, getLanguagePreference, setLanguagePreference, t } from './i18n';
+import type { LanguagePreference, TranslationKey } from './i18n';
 
 type Theme = 'light' | 'dark' | 'system';
 type Model = 'instant' | 'thinking';
+type DialogView = 'search' | 'settings' | 'about' | 'inspiration' | 'delete-chat' | 'clear-chats';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
-const avatar = (className = '') => `<img class="cat-avatar ${className}" src="/cat-avatar.gif" alt="CatGpt 眨眼猫" width="40" height="40" />`;
-const actionButton = (name: IconName, label: string, action: string, extra = '') =>
-  `<button class="icon-button" type="button" aria-label="${label}" title="${label}" data-action="${action}" ${extra}>${icon(name)}</button>`;
+const tr = (key: TranslationKey) => `<span data-i18n="${key}">${t(key)}</span>`;
+const attr = (name: 'aria-label' | 'title' | 'placeholder' | 'alt', key: TranslationKey) =>
+  `${name}="${escapeHtml(t(key))}" data-i18n-${name}="${key}"`;
+const avatar = (className = '') => `<img class="cat-avatar ${className}" src="/cat-avatar.gif" ${attr('alt', 'catAvatar')} width="40" height="40" />`;
+const actionButton = (name: IconName, key: TranslationKey, action: string, extra = '') =>
+  `<button class="icon-button" type="button" ${attr('aria-label', key)} ${attr('title', key)} data-action="${action}" ${extra}>${icon(name)}</button>`;
 
 let chats = loadChats();
 let activeId: string | null = readSetting('catgpt.active') || null;
@@ -26,91 +32,99 @@ if (!['light', 'dark', 'system'].includes(theme)) theme = 'system';
 const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
 const feedback = new Map<string, string>();
 
-const prompts = [
-  { icon: 'code' as const, label: '帮我写段代码', prompt: '帮我写一段改变世界的代码。', color: 'green' },
-  { icon: 'pen' as const, label: '写点有趣的东西', prompt: '给我写一首关于猫咪的诗。', color: 'blue' },
-  { icon: 'bulb' as const, label: '给我一点灵感', prompt: '今天不想上班，有什么好主意？', color: 'amber' },
-  { icon: 'paw' as const, label: '听听猫的意见', prompt: '猫猫，你怎么看？', color: 'purple' },
-];
+function localizedPrompts() {
+  return [
+    { icon: 'code' as const, label: t('promptCodeLabel'), prompt: t('promptCode'), color: 'green' },
+    { icon: 'pen' as const, label: t('promptWriteLabel'), prompt: t('promptWrite'), color: 'blue' },
+    { icon: 'bulb' as const, label: t('promptIdeasLabel'), prompt: t('promptIdeas'), color: 'amber' },
+    { icon: 'paw' as const, label: t('promptCatLabel'), prompt: t('promptCat'), color: 'purple' },
+  ];
+}
+let prompts = localizedPrompts();
+
+function suggestionButtons(): string {
+  return prompts.map((prompt, index) => `<button class="suggestion" data-action="suggest" data-index="${index}">${icon(prompt.icon, prompt.color)}${prompt.label}</button>`).join('');
+}
 
 app.innerHTML = `
-  <a class="skip-link" href="#prompt">跳到输入框</a>
+  <a class="skip-link" href="#prompt">${tr('skipToInput')}</a>
   <div class="app-shell" id="shell">
-    <button class="sidebar-backdrop" aria-label="关闭侧栏" data-action="close-sidebar" tabindex="-1"></button>
-    <aside class="sidebar" id="sidebar" aria-label="侧栏">
+    <button class="sidebar-backdrop" ${attr('aria-label', 'closeSidebar')} data-action="close-sidebar" tabindex="-1"></button>
+    <aside class="sidebar" id="sidebar" ${attr('aria-label', 'sidebar')}>
       <div class="sidebar-top">
-        <button class="brand-home" data-action="new-chat" aria-label="CatGpt 新聊天">${avatar()}</button>
+        <button class="brand-home" data-action="new-chat" ${attr('aria-label', 'brandNewChat')}>${avatar()}</button>
         <span class="sidebar-expanded sidebar-wordmark">CatGpt</span>
-        <span class="sidebar-expanded">${actionButton('panel', '收起侧栏', 'toggle-sidebar')}</span>
+        <span class="sidebar-expanded">${actionButton('panel', 'collapseSidebar', 'toggle-sidebar')}</span>
       </div>
       <div class="sidebar-rail">
-        ${actionButton('panel', '展开侧栏', 'toggle-sidebar')}
-        ${actionButton('edit', '新聊天', 'new-chat')}
-        ${actionButton('search', '搜索聊天', 'search')}
+        ${actionButton('panel', 'expandSidebar', 'toggle-sidebar')}
+        ${actionButton('edit', 'newChat', 'new-chat')}
+        ${actionButton('search', 'searchChats', 'search')}
       </div>
       <div class="sidebar-expanded sidebar-content">
-        <nav class="primary-nav" aria-label="主导航">
-          <button class="nav-item" data-action="new-chat">${icon('edit')}<span>新聊天</span><kbd>⌘ ⇧ O</kbd></button>
-          <button class="nav-item" data-action="search">${icon('search')}<span>搜索聊天</span><kbd>⌘ K</kbd></button>
-          <button class="nav-item" data-action="inspiration">${icon('image')}<span>猫咪灵感</span><span class="new-badge">新</span></button>
+        <nav class="primary-nav" ${attr('aria-label', 'navigation')}>
+          <button class="nav-item" data-action="new-chat">${icon('edit')}${tr('newChat')}<kbd>⌘ ⇧ O</kbd></button>
+          <button class="nav-item" data-action="search">${icon('search')}${tr('searchChats')}<kbd>⌘ K</kbd></button>
+          <button class="nav-item" data-action="inspiration">${icon('image')}${tr('inspiration')}<span class="new-badge" data-i18n="newBadge">${t('newBadge')}</span></button>
         </nav>
         <div class="history-section">
-          <h2 class="section-label">你的聊天</h2>
+          <h2 class="section-label" data-i18n="yourChats">${t('yourChats')}</h2>
           <div id="history-list"></div>
         </div>
         <div class="sidebar-bottom">
-          <div class="free-note">${icon('sparkles')}<div><strong>全部猫力，免费使用</strong><span>无需登录，也不用小鱼干</span></div></div>
-          <button class="local-profile" data-action="settings">${avatar('profile-avatar')}<span><strong>本地小猫</strong><span>免费版 · 只在此设备保存</span></span>${icon('more')}</button>
+          <div class="free-note">${icon('sparkles')}<div><strong data-i18n="allPurrFree">${t('allPurrFree')}</strong><span data-i18n="noLoginFish">${t('noLoginFish')}</span></div></div>
+          <button class="local-profile" data-action="settings">${avatar('profile-avatar')}<span><strong data-i18n="guestCat">${t('guestCat')}</strong><span data-i18n="localPlan">${t('localPlan')}</span></span>${icon('more')}</button>
         </div>
       </div>
-      <div class="rail-bottom">${actionButton('sliders', '设置', 'settings')}</div>
+      <div class="rail-bottom">${actionButton('sliders', 'settings', 'settings')}</div>
     </aside>
 
     <main class="workspace" id="workspace">
       <header class="topbar">
         <div class="topbar-left">
-          <span class="mobile-menu">${actionButton('panel', '打开侧栏', 'toggle-sidebar', 'aria-controls="sidebar" aria-expanded="false"')}</span>
+          <span class="mobile-menu">${actionButton('panel', 'openSidebar', 'toggle-sidebar', 'aria-controls="sidebar" aria-expanded="false"')}</span>
           <button class="model-trigger" id="model-trigger" data-action="model" aria-haspopup="true" aria-expanded="false"><span>CatGpt</span>${icon('chevron')}</button>
         </div>
         <div class="topbar-right">
-          <span class="feline-badge"><span></span>100% 猫工智能</span>
-          ${actionButton('temporary', '临时聊天', 'temporary', 'id="temporary-button" aria-pressed="false"')}
-          ${actionButton('sun', '切换深浅主题', 'toggle-theme', 'id="theme-button"')}
-          <a class="icon-button github-link" href="https://github.com/zjl1985/catgpt" target="_blank" rel="noopener noreferrer" aria-label="在 GitHub 查看源码" title="在 GitHub 查看源码">${icon('github')}</a>
+          <span class="feline-badge"><i></i>${tr('felineAI')}</span>
+          <button class="language-toggle" id="language-toggle" data-action="toggle-language" ${attr('aria-label', 'switchLanguage')} ${attr('title', 'switchLanguage')}>${getLanguage() === 'zh-CN' ? 'EN' : '中'}</button>
+          ${actionButton('temporary', 'temporaryChat', 'temporary', 'id="temporary-button" aria-pressed="false"')}
+          ${actionButton('sun', 'toggleTheme', 'toggle-theme', 'id="theme-button"')}
+          <a class="icon-button github-link" href="https://github.com/zjl1985/catgpt" target="_blank" rel="noopener noreferrer" ${attr('aria-label', 'githubSource')} ${attr('title', 'githubSource')}>${icon('github')}</a>
         </div>
       </header>
 
       <div class="chat-scroll" id="chat-scroll">
         <section class="welcome" id="welcome">
-          <div class="welcome-cat">${avatar()}<span class="hello-bubble">喵？</span></div>
-          <h1 id="welcome-title">有什么可以帮你喵的？</h1>
-          <p id="welcome-subtitle">你尽管问，本喵自有回答。</p>
+          <div class="welcome-cat">${avatar()}<span class="hello-bubble" data-i18n="hello">${t('hello')}</span></div>
+          <h1 id="welcome-title">${t('welcomeTitle')}</h1>
+          <p id="welcome-subtitle">${t('welcomeSubtitle')}</p>
         </section>
-        <section class="messages" id="messages" aria-label="聊天消息" aria-live="polite" aria-relevant="additions text"></section>
+        <section class="messages" id="messages" ${attr('aria-label', 'chatMessages')} aria-live="polite" aria-relevant="additions text"></section>
       </div>
 
       <div class="composer-dock">
-        <div class="temporary-note" id="temporary-note" hidden>${icon('shield')}临时聊天不会保存在历史记录中</div>
+        <div class="temporary-note" id="temporary-note" hidden>${icon('shield')}${tr('temporaryNote')}</div>
         <form class="composer" id="composer">
-          <label class="sr-only" for="prompt">发消息给 CatGpt</label>
-          <textarea id="prompt" name="prompt" placeholder="向 CatGpt 发消息" rows="1" maxlength="10000" enterkeyhint="send"></textarea>
+          <label class="sr-only" for="prompt" data-i18n="messageLabel">${t('messageLabel')}</label>
+          <textarea id="prompt" name="prompt" ${attr('placeholder', 'messagePlaceholder')} rows="1" maxlength="10000" enterkeyhint="send"></textarea>
           <div class="composer-toolbar">
             <div class="composer-tools">
-              ${actionButton('plus', '添加灵感', 'add', 'id="add-trigger" aria-haspopup="true" aria-expanded="false"')}
-              <button class="tools-button" type="button" data-action="tools" id="tools-trigger" aria-haspopup="true" aria-expanded="false">${icon('sliders')}<span>工具</span></button>
-              <span class="thinking-chip" id="thinking-chip" hidden>${icon('sparkles')}深度思喵<button type="button" data-action="clear-thinking" aria-label="关闭深度思喵">${icon('x')}</button></span>
+              ${actionButton('plus', 'addInspiration', 'add', 'id="add-trigger" aria-haspopup="true" aria-expanded="false"')}
+              <button class="tools-button" type="button" data-action="tools" id="tools-trigger" aria-haspopup="true" aria-expanded="false">${icon('sliders')}${tr('tools')}</button>
+              <span class="thinking-chip" id="thinking-chip" hidden>${icon('sparkles')}${tr('deepThinking')}<button type="button" data-action="clear-thinking" ${attr('aria-label', 'closeThinking')}>${icon('x')}</button></span>
             </div>
             <div class="composer-send">
-              <span class="input-hint">Enter 发送</span>
-              <button class="send-button" id="send-button" type="button" data-action="meow" aria-label="听一声喵" title="听一声喵">${icon('wave')}</button>
+              <span class="input-hint" data-i18n="enterSend">${t('enterSend')}</span>
+              <button class="send-button" id="send-button" type="button" data-action="meow" aria-label="${t('hearMeow')}" title="${t('hearMeow')}">${icon('wave')}</button>
             </div>
           </div>
         </form>
-        <div class="suggestions" id="suggestions">${prompts.map((prompt, index) => `<button class="suggestion" data-action="suggest" data-index="${index}">${icon(prompt.icon, prompt.color)}${prompt.label}</button>`).join('')}</div>
-        <p class="composer-footer">CatGpt 的回答可能没什么用，但它尽力可爱了。<button data-action="about">关于 CatGpt</button></p>
+        <div class="suggestions" id="suggestions">${suggestionButtons()}</div>
+        <p class="composer-footer">${tr('footerText')}<button data-action="about" data-i18n="about">${t('about')}</button></p>
       </div>
-      <div class="home-bottom-label" id="home-bottom-label">没有大模型，只有小猫咪。</div>
-      <button class="help-button" data-action="about" aria-label="关于 CatGpt" title="关于 CatGpt">?</button>
+      <div class="home-bottom-label" id="home-bottom-label" data-i18n="homeTagline">${t('homeTagline')}</div>
+      <button class="help-button" data-action="about" ${attr('aria-label', 'about')} ${attr('title', 'about')}>?</button>
     </main>
   </div>
   <div class="popover" id="popover" hidden></div>
@@ -128,12 +142,62 @@ const popover = document.querySelector<HTMLDivElement>('#popover')!;
 const dialog = document.querySelector<HTMLDialogElement>('#dialog')!;
 let returnFocus: HTMLElement | null = null;
 
+function applyLanguage(): void {
+  const scrollTop = chatScroll.scrollTop;
+  const atBottom = chatScroll.scrollHeight - scrollTop - chatScroll.clientHeight < 40;
+  const focusedId = document.activeElement?.id;
+  document.documentElement.lang = getLanguage();
+  document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((element) => {
+    element.textContent = t(element.dataset.i18n as TranslationKey);
+  });
+  for (const name of ['aria-label', 'title', 'placeholder', 'alt'] as const) {
+    document.querySelectorAll(`[data-i18n-${name}]`).forEach((element) => {
+      element.setAttribute(name, t(element.getAttribute(`data-i18n-${name}`) as TranslationKey));
+    });
+  }
+  document.querySelector('#language-toggle')!.textContent = getLanguage() === 'zh-CN' ? 'EN' : '中';
+  for (const [selector, key] of [
+    ['meta[name="description"]', 'metaDescription'],
+    ['meta[property="og:title"]', 'ogTitle'],
+    ['meta[property="og:description"]', 'ogDescription'],
+  ] as const) document.querySelector(selector)?.setAttribute('content', t(key));
+  prompts = localizedPrompts();
+  document.querySelector('#suggestions')!.innerHTML = suggestionButtons();
+  closePopover();
+  renderHistory();
+  renderMessages(false);
+  if (dialog.open) {
+    switch (dialog.dataset.view as DialogView) {
+      case 'settings': showSettings(); break;
+      case 'about': showAbout(); break;
+      case 'inspiration': inspiration(); break;
+      case 'delete-chat': confirmDeleteChat(dialog.dataset.chatId ?? ''); break;
+      case 'clear-chats': confirmClearChats(); break;
+      case 'search': {
+        const query = document.querySelector<HTMLInputElement>('#chat-search')!.value;
+        searchChats();
+        document.querySelector<HTMLInputElement>('#chat-search')!.value = query;
+        renderSearch(query);
+        break;
+      }
+    }
+  }
+  if (focusedId) document.getElementById(focusedId)?.focus({ preventScroll: true });
+  requestAnimationFrame(() => { chatScroll.scrollTop = atBottom ? chatScroll.scrollHeight : scrollTop; });
+}
+
+function changeLanguage(preference: LanguagePreference): void {
+  setLanguagePreference(preference);
+  applyLanguage();
+  toast(t('languageChanged'));
+}
+
 function currentChat(): Chat | null {
   return temporary ? temporaryChat : chats.find((chat) => chat.id === activeId) ?? null;
 }
 
 function persist(): void {
-  if (!saveChats(chats)) toast('浏览器存储空间不足，这次聊天仅在当前页面保留。');
+  if (!saveChats(chats)) toast(t('storageFull'));
   writeSetting('catgpt.active', activeId ?? '');
 }
 
@@ -158,11 +222,11 @@ function renderHistory(): void {
   historyList.innerHTML = ordered.length ? ordered.map((chat) => `
     <div class="history-row ${chat.id === activeId && !temporary ? 'active' : ''}">
       <button class="history-item" data-action="open-chat" data-id="${escapeHtml(chat.id)}" title="${escapeHtml(chat.title)}" ${chat.id === activeId && !temporary ? 'aria-current="true"' : ''}>${escapeHtml(chat.title)}</button>
-      <button class="history-delete" data-action="delete-chat" data-id="${escapeHtml(chat.id)}" aria-label="删除聊天：${escapeHtml(chat.title)}" title="删除聊天">${icon('trash')}</button>
-    </div>`).join('') : '<p class="history-empty">和小猫聊点什么吧。<br />你的聊天会出现在这里。</p>';
+      <button class="history-delete" data-action="delete-chat" data-id="${escapeHtml(chat.id)}" aria-label="${t('deleteChatLabel', { title: escapeHtml(chat.title) })}" title="${t('deleteChatTooltip')}">${icon('trash')}</button>
+    </div>`).join('') : `<p class="history-empty">${t('emptyHistoryIntro')}<br />${t('emptyHistoryHint')}</p>`;
 }
 
-function renderMessages(): void {
+function renderMessages(scrollToBottom = true): void {
   const chat = currentChat();
   const hasMessages = Boolean(chat?.messages.length);
   workspace.classList.toggle('has-chat', hasMessages);
@@ -171,29 +235,29 @@ function renderMessages(): void {
   document.querySelector<HTMLElement>('#home-bottom-label')!.hidden = hasMessages;
   document.querySelector<HTMLElement>('#temporary-note')!.hidden = !temporary;
   document.querySelector('#temporary-button')!.setAttribute('aria-pressed', String(temporary));
-  document.querySelector('#welcome-title')!.textContent = temporary ? '悄悄话，也可以喵。' : '有什么可以帮你喵的？';
-  document.querySelector('#welcome-subtitle')!.textContent = temporary ? '聊完就忘记，猫的记忆本来就不太好。' : '你尽管问，本喵自有回答。';
+  document.querySelector('#welcome-title')!.textContent = t(temporary ? 'tempWelcomeTitle' : 'welcomeTitle');
+  document.querySelector('#welcome-subtitle')!.textContent = t(temporary ? 'tempWelcomeSubtitle' : 'welcomeSubtitle');
   messageList.innerHTML = chat?.messages.map((message) => {
-    if (message.role === 'user') return `<article class="message user-message" aria-label="你"><div class="user-bubble">${escapeHtml(message.content)}</div></article>`;
+    if (message.role === 'user') return `<article class="message user-message" aria-label="${t('you')}"><div class="user-bubble">${escapeHtml(message.content)}</div></article>`;
     const pending = message.id === pendingId;
     return `<article class="message assistant-message" aria-label="CatGpt">
       <div class="assistant-avatar">${avatar()}</div>
       <div class="assistant-body">
-        <div class="assistant-name">CatGpt${model === 'thinking' ? '<span>深度思喵</span>' : ''}</div>
-        <div class="assistant-content" ${pending ? 'aria-label="小猫正在思考" aria-busy="true"' : ''}>${pending ? '<span class="typing-indicator"><i></i><i></i><i></i></span>' : REPLY}</div>
-        ${pending ? '<div class="thinking-label">正在组织喵言喵语…</div>' : `<div class="message-actions">
-          ${actionButton('copy', '复制回复', 'copy', `data-id="${escapeHtml(message.id)}"`)}
-          ${actionButton('like', '好喵', 'like', `data-id="${escapeHtml(message.id)}" aria-pressed="${feedback.get(message.id) === 'like'}"`)}
-          ${actionButton('dislike', '坏喵', 'dislike', `data-id="${escapeHtml(message.id)}" aria-pressed="${feedback.get(message.id) === 'dislike'}"`)}
-          ${actionButton('wave', '朗读猫语', 'meow')}
-          ${actionButton('retry', '重新生成', 'regenerate', `data-id="${escapeHtml(message.id)}"`)}
+        <div class="assistant-name">CatGpt${model === 'thinking' ? `<span>${t('deepThinking')}</span>` : ''}</div>
+        <div class="assistant-content" ${pending ? `aria-label="${t('thinkingAria')}" aria-busy="true"` : ''}>${pending ? '<span class="typing-indicator"><i></i><i></i><i></i></span>' : REPLY}</div>
+        ${pending ? `<div class="thinking-label">${t('thinkingLabel')}</div>` : `<div class="message-actions">
+          ${actionButton('copy', 'copyReply', 'copy', `data-id="${escapeHtml(message.id)}"`)}
+          ${actionButton('like', 'goodMeow', 'like', `data-id="${escapeHtml(message.id)}" aria-pressed="${feedback.get(message.id) === 'like'}"`)}
+          ${actionButton('dislike', 'badMeow', 'dislike', `data-id="${escapeHtml(message.id)}" aria-pressed="${feedback.get(message.id) === 'dislike'}"`)}
+          ${actionButton('wave', 'readMeow', 'meow')}
+          ${actionButton('retry', 'regenerate', 'regenerate', `data-id="${escapeHtml(message.id)}"`)}
         </div>`}
       </div>
     </article>`;
   }).join('') ?? '';
   document.title = chat ? `${chat.title} - CatGpt` : 'CatGpt';
   updateComposer();
-  requestAnimationFrame(() => { chatScroll.scrollTop = chatScroll.scrollHeight; });
+  if (scrollToBottom) requestAnimationFrame(() => { chatScroll.scrollTop = chatScroll.scrollHeight; });
 }
 
 function updateComposer(): void {
@@ -202,7 +266,7 @@ function updateComposer(): void {
   const button = document.querySelector<HTMLButtonElement>('#send-button')!;
   button.type = pendingId ? 'button' : textarea.value.trim() ? 'submit' : 'button';
   button.dataset.action = pendingId ? 'stop' : textarea.value.trim() ? 'send' : 'meow';
-  button.ariaLabel = pendingId ? '停止思考' : textarea.value.trim() ? '发送消息' : '听一声喵';
+  button.ariaLabel = t(pendingId ? 'stopThinking' : textarea.value.trim() ? 'sendMessage' : 'hearMeow');
   button.title = button.ariaLabel;
   button.innerHTML = icon(pendingId ? 'stop' : textarea.value.trim() ? 'arrow' : 'wave');
   document.querySelector<HTMLElement>('#thinking-chip')!.hidden = model !== 'thinking';
@@ -304,11 +368,12 @@ function showPopover(anchor: HTMLElement, html: string, above = false): void {
   popover.querySelector<HTMLButtonElement>('button')?.focus();
 }
 
-function showDialog(title: string, content: string, className = ''): void {
+function showDialog(title: string, content: string, className = '', view?: DialogView): void {
   closePopover();
   returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   dialog.className = className;
-  dialog.innerHTML = `<div class="dialog-heading"><h2 id="dialog-title">${title}</h2>${actionButton('x', '关闭弹窗', 'close-dialog')}</div>${content}`;
+  dialog.dataset.view = view ?? '';
+  dialog.innerHTML = `<div class="dialog-heading"><h2 id="dialog-title">${title}</h2>${actionButton('x', 'closeDialog', 'close-dialog')}</div>${content}`;
   if (!dialog.open) dialog.showModal();
 }
 
@@ -317,31 +382,46 @@ function closeDialog(): void {
 }
 
 function searchChats(): void {
-  showDialog('搜索聊天', `<div class="search-field">${icon('search')}<input id="chat-search" aria-label="搜索聊天内容" placeholder="搜索你的喵言喵语…" autocomplete="off" /></div><div id="search-results" class="search-results"></div>`, 'search-dialog');
+  showDialog(t('searchChats'), `<div class="search-field">${icon('search')}<input id="chat-search" aria-label="${t('searchContent')}" placeholder="${t('searchPlaceholder')}" autocomplete="off" /></div><div id="search-results" class="search-results"></div>`, 'search-dialog', 'search');
   renderSearch('');
   document.querySelector<HTMLInputElement>('#chat-search')!.focus();
 }
 
 function renderSearch(query: string): void {
   const matches = chats.filter((chat) => `${chat.title} ${chat.messages.map((message) => message.content).join(' ')}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-  document.querySelector('#search-results')!.innerHTML = matches.length ? matches.map((chat) => `<button class="search-result" data-action="open-chat" data-id="${escapeHtml(chat.id)}">${icon('edit')}<span><strong>${escapeHtml(chat.title)}</strong><span>${new Date(chat.updatedAt).toLocaleDateString('zh-CN')} · ${chat.messages.length / 2} 条对话</span></span>${icon('chevron')}</button>`).join('') : `<div class="dialog-empty">${icon('search')}<p>${query ? '没有找到这段猫咪记忆。' : '还没有聊天，先去和小猫打个招呼吧。'}</p></div>`;
+  document.querySelector('#search-results')!.innerHTML = matches.length ? matches.map((chat) => {
+    const count = chat.messages.length / 2;
+    const date = new Date(chat.updatedAt).toLocaleDateString(getLanguage() === 'en' ? 'en-US' : 'zh-CN');
+    return `<button class="search-result" data-action="open-chat" data-id="${escapeHtml(chat.id)}">${icon('edit')}<span><strong>${escapeHtml(chat.title)}</strong><span>${date} · ${t(count === 1 ? 'conversationSingular' : 'conversationPlural', { count })}</span></span>${icon('chevron')}</button>`;
+  }).join('') : `<div class="dialog-empty">${icon('search')}<p>${t(query ? 'searchNoResults' : 'searchEmpty')}</p></div>`;
 }
 
 function showSettings(): void {
-  showDialog('设置', `<div class="settings-body">
-    <div class="setting-row"><span>外观</span><select id="theme-select" aria-label="外观主题"><option value="system" ${theme === 'system' ? 'selected' : ''}>跟随系统</option><option value="light" ${theme === 'light' ? 'selected' : ''}>浅色</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>深色</option></select></div>
-    <div class="setting-row"><span>导出聊天记录</span><button class="secondary-button" data-action="export">${icon('download')}导出</button></div>
-    <div class="setting-row"><span>删除所有聊天记录</span><button class="secondary-button danger-text" data-action="confirm-clear">${icon('trash')}全部删除</button></div>
-    <p class="settings-note">${icon('shield')}无需账号。聊天只保存在你的浏览器，不会发送到服务器。</p>
-  </div>`);
+  const languagePreference = getLanguagePreference();
+  showDialog(t('settings'), `<div class="settings-body">
+    <div class="setting-row"><span>${t('language')}</span><select id="language-select" aria-label="${t('language')}"><option value="system" ${languagePreference === 'system' ? 'selected' : ''}>${t('automaticLanguage')}</option><option value="zh-CN" ${languagePreference === 'zh-CN' ? 'selected' : ''}>简体中文</option><option value="en" ${languagePreference === 'en' ? 'selected' : ''}>English</option></select></div>
+    <div class="setting-row"><span>${t('appearance')}</span><select id="theme-select" aria-label="${t('theme')}"><option value="system" ${theme === 'system' ? 'selected' : ''}>${t('systemTheme')}</option><option value="light" ${theme === 'light' ? 'selected' : ''}>${t('light')}</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>${t('dark')}</option></select></div>
+    <div class="setting-row"><span>${t('exportChats')}</span><button class="secondary-button" data-action="export">${icon('download')}${t('export')}</button></div>
+    <div class="setting-row"><span>${t('deleteAllChats')}</span><button class="secondary-button danger-text" data-action="confirm-clear">${icon('trash')}${t('deleteAll')}</button></div>
+    <p class="settings-note">${icon('shield')}${t('settingsPrivacy')}</p>
+  </div>`, '', 'settings');
 }
 
 function showAbout(): void {
-  showDialog('关于 CatGpt', `<div class="about-content">${avatar()}<h3>人工智喵，认真敷衍。</h3><p>一个长得很熟悉、脑子很空的小猫聊天网站。<br />无论问什么，它只会回答：</p><div class="about-reply">${REPLY}</div><p class="about-small">纯前端 · 零 API · 无需登录<br />这是一个非官方趣味仿作，与 OpenAI 无关联。</p><a class="primary-button" href="https://github.com/zjl1985/catgpt" target="_blank" rel="noopener noreferrer">${icon('github')}GitHub 上摸摸猫</a></div>`);
+  showDialog(t('about'), `<div class="about-content">${avatar()}<h3>${t('aboutTitle')}</h3><p>${t('aboutDescription')}<br />${t('aboutAnswerLabel')}</p><div class="about-reply">${REPLY}</div><p class="about-small">${t('aboutTech')}<br />${t('aboutParody')}</p><a class="primary-button" href="https://github.com/zjl1985/catgpt" target="_blank" rel="noopener noreferrer">${icon('github')}${t('githubPet')}</a></div>`, '', 'about');
 }
 
 function inspiration(): void {
-  showDialog('今天想聊点什么？', `<p class="dialog-description">给小猫出个难题，看看它能有多敷衍。</p><div class="inspiration-grid">${prompts.map((prompt, index) => `<button data-action="use-prompt" data-index="${index}">${icon(prompt.icon, prompt.color)}<strong>${prompt.label}</strong><span>${prompt.prompt}</span></button>`).join('')}</div>`);
+  showDialog(t('inspirationTitle'), `<p class="dialog-description">${t('inspirationDescription')}</p><div class="inspiration-grid">${prompts.map((prompt, index) => `<button data-action="use-prompt" data-index="${index}">${icon(prompt.icon, prompt.color)}<strong>${prompt.label}</strong><span>${prompt.prompt}</span></button>`).join('')}</div>`, '', 'inspiration');
+}
+
+function confirmDeleteChat(id: string): void {
+  showDialog(t('deleteChatConfirmTitle'), `<p class="dialog-description">${t('deleteChatConfirmText')}</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">${t('cancel')}</button><button class="danger-button" data-action="confirm-delete" data-id="${escapeHtml(id)}">${t('delete')}</button></div>`, '', 'delete-chat');
+  dialog.dataset.chatId = id;
+}
+
+function confirmClearChats(): void {
+  showDialog(t('clearTitle'), `<p class="dialog-description">${t('clearDescription')}</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">${t('cancel')}</button><button class="danger-button" data-action="clear-chats">${t('clearButton')}</button></div>`, '', 'clear-chats');
 }
 
 function setPrompt(index: number): void {
@@ -358,9 +438,9 @@ function setPrompt(index: number): void {
 async function copyReply(): Promise<void> {
   try {
     await navigator.clipboard.writeText(REPLY);
-    toast('猫语已复制。');
+    toast(t('copied'));
   } catch {
-    toast('复制暂不可用，可以直接选中猫语复制。');
+    toast(t('copyUnavailable'));
   }
 }
 
@@ -397,7 +477,7 @@ function exportChats(): void {
   link.download = `catgpt-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  toast('猫咪记忆已导出。');
+  toast(t('exported'));
 }
 
 app.addEventListener('click', (event) => {
@@ -416,35 +496,34 @@ app.addEventListener('click', (event) => {
     case 'close-sidebar': closeSidebar(); break;
     case 'search': searchChats(); break;
     case 'open-chat': openChat(id); break;
-    case 'delete-chat':
-      showDialog('删除聊天？', `<p class="dialog-description">这段猫咪记忆将从当前浏览器删除，无法恢复。</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">取消</button><button class="danger-button" data-action="confirm-delete" data-id="${escapeHtml(id)}">删除</button></div>`);
-      break;
+    case 'delete-chat': confirmDeleteChat(id); break;
     case 'confirm-delete':
       chats = chats.filter((chat) => chat.id !== id);
       if (activeId === id) { activeId = null; finishReply(); }
-      persist(); closeDialog(); renderHistory(); renderMessages(); toast('这段聊天已删除。');
+      persist(); closeDialog(); renderHistory(); renderMessages(); toast(t('deleted'));
       break;
     case 'temporary':
       finishReply(); temporary = !temporary; temporaryChat = null; textarea.value = '';
       renderHistory(); renderMessages();
-      toast(temporary ? '已开启临时聊天，不会保存历史。' : '已退出临时聊天。');
+      toast(t(temporary ? 'tempEnabled' : 'tempDisabled'));
       break;
+    case 'toggle-language': changeLanguage(getLanguage() === 'zh-CN' ? 'en' : 'zh-CN'); break;
     case 'toggle-theme':
       theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
       writeSetting('catgpt.theme', theme); applyTheme();
       break;
     case 'model':
-      showPopover(target, `<div class="popover-label">选择猫咪模型</div><button class="model-option" data-action="set-model" data-model="instant">${icon('cat')}<span><strong>CatGpt</strong><small>快速回答，完全不动脑。</small></span>${model === 'instant' ? icon('check') : ''}</button><button class="model-option" data-action="set-model" data-model="thinking">${icon('sparkles')}<span><strong>CatGpt Thinking</strong><small>多想一会儿，答案还是喵。</small></span>${model === 'thinking' ? icon('check') : ''}</button>`);
+      showPopover(target, `<div class="popover-label">${t('selectModel')}</div><button class="model-option" data-action="set-model" data-model="instant">${icon('cat')}<span><strong>CatGpt</strong><small>${t('instantDescription')}</small></span>${model === 'instant' ? icon('check') : ''}</button><button class="model-option" data-action="set-model" data-model="thinking">${icon('sparkles')}<span><strong>CatGpt Thinking</strong><small>${t('thinkingDescription')}</small></span>${model === 'thinking' ? icon('check') : ''}</button>`);
       break;
     case 'set-model':
       model = target.dataset.model === 'thinking' ? 'thinking' : 'instant';
       closePopover(); updateComposer(); textarea.focus();
       break;
     case 'tools':
-      showPopover(target, `<div class="popover-label">认真工作的工具</div><button data-action="set-model" data-model="thinking">${icon('sparkles')}深度思喵</button><button data-action="inspiration">${icon('bulb')}猫咪灵感</button>`, true);
+      showPopover(target, `<div class="popover-label">${t('workTools')}</div><button data-action="set-model" data-model="thinking">${icon('sparkles')}${t('deepThinking')}</button><button data-action="inspiration">${icon('bulb')}${t('inspiration')}</button>`, true);
       break;
     case 'add':
-      showPopover(target, `<div class="popover-label">加一点猫咪灵感</div>${prompts.map((prompt, index) => `<button data-action="use-prompt" data-index="${index}">${icon(prompt.icon, prompt.color)}${prompt.label}</button>`).join('')}`, true);
+      showPopover(target, `<div class="popover-label">${t('addPromptLabel')}</div>${prompts.map((prompt, index) => `<button data-action="use-prompt" data-index="${index}">${icon(prompt.icon, prompt.color)}${prompt.label}</button>`).join('')}`, true);
       break;
     case 'clear-thinking': model = 'instant'; updateComposer(); break;
     case 'suggest': submitMessage(prompts[Number(target.dataset.index)]?.prompt); break;
@@ -458,7 +537,7 @@ app.addEventListener('click', (event) => {
       const value = target.dataset.action;
       feedback.set(id, feedback.get(id) === value ? '' : value);
       renderMessages();
-      toast(value === 'like' ? '你的喜欢，小猫收到了。' : '收到。下次还是喵。');
+      toast(t(value === 'like' ? 'likeToast' : 'dislikeToast'));
       break;
     }
     case 'regenerate':
@@ -470,11 +549,9 @@ app.addEventListener('click', (event) => {
     case 'about': showAbout(); break;
     case 'close-dialog': closeDialog(); break;
     case 'export': exportChats(); break;
-    case 'confirm-clear':
-      showDialog('删除所有聊天？', '<p class="dialog-description">所有保存在这个浏览器中的聊天记录都将被删除，无法恢复。</p><div class="dialog-actions"><button class="secondary-button" data-action="close-dialog">取消</button><button class="danger-button" data-action="clear-chats">删除所有聊天</button></div>');
-      break;
+    case 'confirm-clear': confirmClearChats(); break;
     case 'clear-chats':
-      chats = []; activeId = null; finishReply(); persist(); closeDialog(); renderHistory(); renderMessages(); toast('猫咪记忆已清空。');
+      chats = []; activeId = null; finishReply(); persist(); closeDialog(); renderHistory(); renderMessages(); toast(t('cleared'));
       break;
   }
 });
@@ -494,6 +571,10 @@ app.addEventListener('change', (event) => {
   if ((event.target as HTMLElement).id === 'theme-select') {
     theme = (event.target as HTMLSelectElement).value as Theme;
     writeSetting('catgpt.theme', theme); applyTheme();
+  }
+  if ((event.target as HTMLElement).id === 'language-select') {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value === 'system' || value === 'zh-CN' || value === 'en') changeLanguage(value);
   }
 });
 document.addEventListener('click', (event) => {
@@ -516,6 +597,7 @@ dialog.addEventListener('click', (event) => {
 });
 dialog.addEventListener('close', () => { if (returnFocus?.isConnected) returnFocus.focus(); });
 colorScheme.addEventListener('change', () => { if (theme === 'system') applyTheme(); });
+window.addEventListener('languagechange', () => { if (getLanguagePreference() === 'system') applyLanguage(); });
 window.addEventListener('resize', () => {
   closePopover();
   syncSidebar();
@@ -524,5 +606,4 @@ window.addEventListener('resize', () => {
 
 applyTheme();
 syncSidebar();
-renderHistory();
-renderMessages();
+applyLanguage();

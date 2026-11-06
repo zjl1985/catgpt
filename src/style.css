@@ -90,10 +90,10 @@ kbd { font-family: inherit; font-size: 11px; color: var(--faint); opacity: 0; tr
 .free-note span { color: var(--muted); font-size: 11px; line-height: 1.6; }
 .local-profile { width: 100%; padding: 8px; display: flex; align-items: center; text-align: left; border-radius: 10px; gap: 10px; }
 .local-profile:hover { background: var(--hover); }
-.profile-avatar { width: 34px; height: 34px; }
-.local-profile > span { flex: 1; }
-.local-profile strong { display: block; font-size: 13px; font-weight: 550; line-height: 1.7; }
-.local-profile span > span { display: block; font-size: 10px; color: var(--muted); line-height: 1.8; }
+.profile-avatar { width: 34px; height: 34px; flex-shrink: 0; }
+.local-profile > span { flex: 1; min-width: 0; }
+.local-profile strong { display: block; font-size: 13px; font-weight: 550; line-height: 1.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.local-profile span > span { display: block; font-size: 10px; color: var(--muted); line-height: 1.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .local-profile > .icon { width: 18px; height: 18px; color: var(--muted); }
 .sidebar-rail, .rail-bottom { display: none; }
 .sidebar-collapsed .sidebar { width: 64px; }
@@ -107,12 +107,17 @@ kbd { font-family: inherit; font-size: 11px; color: var(--faint); opacity: 0; tr
 .workspace { position: relative; display: flex; flex: 1; flex-direction: column; height: 100%; min-width: 0; background: var(--bg); }
 .topbar { height: 64px; flex-shrink: 0; padding: 10px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .topbar-left, .topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-left { min-width: 0; }
 .model-trigger { display: flex; align-items: center; gap: 7px; border-radius: 10px; padding: 8px 10px; margin-left: -6px; font-size: 19px; font-weight: 600; letter-spacing: -.45px; color: var(--muted); white-space: nowrap; }
 .model-trigger:hover { background: var(--sidebar); color: var(--text); }
 .model-trigger .icon { width: 15px; height: 15px; stroke-width: 2; color: var(--faint); }
-.topbar-right { gap: 5px; }
+.model-trigger { min-width: 0; }
+.model-trigger > span { overflow: hidden; text-overflow: ellipsis; }
+.topbar-right { gap: 5px; flex-shrink: 0; }
+.language-toggle { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 9px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.language-toggle:hover { background: var(--hover); color: var(--text); }
 .feline-badge { display: flex; gap: 7px; align-items: center; margin-right: 13px; font-size: 11px; color: var(--muted); white-space: nowrap; }
-.feline-badge > span { width: 5px; height: 5px; background: #68a387; border-radius: 50%; }
+.feline-badge > i { width: 5px; height: 5px; background: #68a387; border-radius: 50%; }
 .mobile-menu { display: none; }
 .chat-scroll { flex: 0 0 auto; min-height: 0; padding: clamp(65px, calc(33dvh - 112px), 240px) 24px 28px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 .welcome { text-align: center; margin: 0 auto; }
@@ -127,18 +132,19 @@ kbd { font-family: inherit; font-size: 11px; color: var(--faint); opacity: 0; tr
 .composer textarea { display: block; resize: none; overflow-y: auto; border: none; background: transparent; width: 100%; font-size: 15px; line-height: 24px; min-height: 43px; max-height: 200px; padding: 0 7px 15px; scrollbar-width: thin; }
 .composer textarea::placeholder { color: var(--faint); }
 .composer-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.composer-tools { display: flex; gap: 4px; align-items: center; }
+.composer-tools { display: flex; gap: 4px; align-items: center; min-width: 0; }
 .composer-tools > .icon-button { width: 32px; height: 32px; color: var(--text); }
-.tools-button { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; padding: 7px 10px; border-radius: 20px; }
+.tools-button { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; padding: 7px 10px; border-radius: 20px; flex-shrink: 0; }
 .tools-button:hover { background: var(--hover); color: var(--text); }
 .tools-button > .icon { width: 17px; height: 17px; }
-.composer-send { display: flex; align-items: center; gap: 12px; }
+.composer-send { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .input-hint { font-size: 10px; color: var(--faint); }
 .send-button { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; background: var(--button-bg); color: var(--button-text); transition: opacity .15s, transform .15s; }
 .send-button:hover { opacity: .8; }
 .send-button:active { transform: scale(.93); }
 .send-button > .icon { width: 20px; height: 20px; stroke-width: 2; }
-.thinking-chip { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #4777bb; padding: 5px 7px; border-radius: 20px; background: #eaf2ff; }
+.thinking-chip { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #4777bb; padding: 5px 7px; border-radius: 20px; background: #eaf2ff; min-width: 0; }
+.thinking-chip > [data-i18n] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thinking-chip .icon { width: 13px; height: 13px; }
 .thinking-chip button { padding: 0; }
 [data-theme="dark"] .thinking-chip { background: #29425d; color: #9dc7ff; }
@@ -229,7 +235,7 @@ dialog::backdrop { background: #0006; backdrop-filter: blur(3px); }
 .dialog-empty p { font-size: 12px; line-height: 1.8; margin: 16px 0 0; }
 .settings-body { padding: 0 24px 20px; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 17px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-.setting-row select { border: 1px solid var(--border); background: var(--surface); padding: 8px 10px; border-radius: 8px; font-size: 12px; }
+.setting-row select { border: 1px solid var(--border); background: var(--surface); padding: 8px 10px; border-radius: 8px; font-size: 12px; min-width: 0; max-width: 70%; }
 .settings-note { display: flex; gap: 9px; align-items: flex-start; color: var(--muted); font-size: 11px; line-height: 1.9; margin: 20px 0 4px; }
 .settings-note > .icon { width: 16px; height: 16px; margin-top: 2px; }
 .about-content { text-align: center; padding: 5px 25px 30px; }
