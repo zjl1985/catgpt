@@ -208,7 +208,7 @@ dialog::backdrop { background: #0006; backdrop-filter: blur(3px); }
 .dialog-heading > button .icon { width: 18px; height: 18px; }
 .dialog-description { color: var(--muted); padding: 0 24px; line-height: 1.9; font-size: 13px; margin: 0 0 20px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 10px 24px 24px; }
-.primary-button, .secondary-button, .danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 12px; font-weight: 500; min-height: 36px; }
+.primary-button, .secondary-button, .danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 12px; font-weight: 500; min-height: 36px; white-space: nowrap; flex-shrink: 0; }
 .primary-button { color: var(--button-text); background: var(--button-bg); }
 .primary-button:hover { opacity: .85; }
 .secondary-button { border: 1px solid var(--border); }
