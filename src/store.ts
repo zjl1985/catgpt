@@ -5,6 +5,11 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  persona?: string;
+  replyId?: string;
+  drinking?: boolean;
+  thinking?: boolean;
+  thoughtId?: string;
 }
 
 export interface Chat {
@@ -43,7 +48,9 @@ export function loadChats(): Chat[] {
           if (!message || typeof message !== 'object') return false;
           const item = message as Record<string, unknown>;
           return typeof item.id === 'string' && typeof item.content === 'string' &&
-            (item.role === 'user' || (item.role === 'assistant' && item.content === REPLY));
+            (item.role === 'user' || item.role === 'assistant') &&
+            ['persona', 'replyId', 'thoughtId'].every((key) => item[key] === undefined || typeof item[key] === 'string') &&
+            ['drinking', 'thinking'].every((key) => item[key] === undefined || typeof item[key] === 'boolean');
         });
     }).sort((a, b) => b.updatedAt - a.updatedAt);
   } catch {

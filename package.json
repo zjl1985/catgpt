@@ -3,12 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "A very serious ChatGPT parody. Every answer is mewo～～🐱.",
+  "description": "The beer cat at catgpt.bar. Bilingual cat personalities, meows, and the occasional cheers.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "~7.0.2",
