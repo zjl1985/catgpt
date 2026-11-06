@@ -1,42 +1,38 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { PERSONAS, createCatReply, catThought } from '../src/meows.ts';
+import { createCatReply, catThought } from '../src/meows.ts';
 import { REPLY, STORAGE_KEY, loadChats, saveChats } from '../src/store.ts';
 
 const reply = (overrides = {}) => createCatReply({
-  input: 'Just sitting here', persona: 'bar', language: 'en',
+  input: 'Just sitting here', language: 'en',
   random: () => 0.5, ...overrides,
 });
 
-test('Classic preserves the original exact reply in either language and every context', () => {
+test('The original signature is available automatically without selecting a mode', () => {
   for (const language of ['zh-CN', 'en']) {
-    for (const input of ['cheers 🍺', '下班喝一杯', 'hello', '你好', 'x'.repeat(1000)]) {
-      const result = reply({ persona: 'classic', language, input, random: () => 0 });
-      assert.equal(result.content, REPLY);
-      assert.equal(result.drinking, false);
+    const result = reply({ language, previousWasDrinking: true, random: () => 0 });
+    assert.equal(result.content, REPLY);
+    assert.equal(result.drinking, false);
+    assert.equal('persona' in result, false);
+  }
+});
+
+test('Random replies are localized at every selection boundary', () => {
+  for (const language of ['zh-CN', 'en']) {
+    for (const value of [0, 0.12, 0.5, 0.999999, 1]) {
+      const result = reply({ language, random: () => value });
+      assert.ok(result.content.length > 0);
+      assert.ok(catThought(result.thoughtId, language).pending);
+      assert.ok(catThought(result.thoughtId, language).done);
+      if (language === 'en') assert.doesNotMatch(result.content, /\p{Script=Han}/u);
     }
   }
 });
 
-test('Every persona produces a localized response at random-selection boundaries', () => {
-  for (const { id: persona } of PERSONAS) {
-    for (const language of ['zh-CN', 'en']) {
-      for (const value of [0, 0.12, 0.5, 0.999999, 1]) {
-        const result = reply({ persona, language, random: () => value });
-        assert.ok(result.content.length > 0);
-        assert.equal(result.persona, persona);
-        assert.ok(catThought(result.thoughtId, language).pending);
-        assert.ok(catThought(result.thoughtId, language).done);
-        if (language === 'en' && persona !== 'classic') assert.doesNotMatch(result.content, /\p{Script=Han}/u);
-      }
-    }
-  }
-});
-
-test('Chinese and English beer cues trigger bar replies in every non-Classic personality', () => {
-  for (const { id: persona } of PERSONAS.filter((item) => item.id !== 'classic')) {
+test('Chinese and English beer cues trigger the drinking surprise', () => {
+  for (const language of ['zh-CN', 'en']) {
     for (const input of ['啤酒', '干杯', '喝酒', '下班', '🍺', '🍻', 'beer', 'cheers', 'after work', 'grab a drink', 'catgpt.bar']) {
-      const result = reply({ input, persona, random: () => 0.99 });
+      const result = reply({ input, language, random: () => 0.99 });
       assert.equal(result.drinking, true);
       assert.match(result.id, /^beer-/);
     }
@@ -47,7 +43,6 @@ test('An occasional random sip has a cooldown, while explicit cheers still work'
   assert.equal(reply({ random: () => 0 }).drinking, true);
   assert.equal(reply({ random: () => 0, previousWasDrinking: true }).drinking, false);
   assert.equal(reply({ input: 'cheers', random: () => 0, previousWasDrinking: true }).drinking, true);
-  assert.equal(reply({ persona: 'tipsy', random: () => 0.99, previousWasDrinking: true }).drinking, true);
 });
 
 test('Replies avoid recent repeats and still vary after exhausting a small topic pool', () => {

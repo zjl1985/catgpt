@@ -5,12 +5,11 @@ import { REPLY, escapeHtml, loadChats, readSetting, saveChats, writeSetting } fr
 import type { Chat, Message } from './store';
 import { getLanguage, getLanguagePreference, setLanguagePreference, t } from './i18n';
 import type { LanguagePreference, TranslationKey } from './i18n';
-import { PERSONAS, PHRASE_COUNT, catThought, createCatReply, isPersona, personaName } from './meows';
-import type { Persona } from './meows';
+import { catThought, createCatReply } from './meows';
 
 type Theme = 'light' | 'dark' | 'system';
 type Model = 'instant' | 'thinking';
-type DialogView = 'search' | 'settings' | 'about' | 'inspiration' | 'personas' | 'delete-chat' | 'clear-chats';
+type DialogView = 'search' | 'settings' | 'about' | 'inspiration' | 'delete-chat' | 'clear-chats';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const tr = (key: TranslationKey) => `<span data-i18n="${key}">${t(key)}</span>`;
@@ -26,8 +25,6 @@ if (!chats.some((chat) => chat.id === activeId)) activeId = null;
 let temporary = false;
 let temporaryChat: Chat | null = null;
 let model: Model = 'instant';
-const storedPersona = readSetting('catgpt.persona', 'bar');
-let persona: Persona = isPersona(storedPersona) ? storedPersona : 'bar';
 let pendingId: string | null = null;
 let replyTimer: ReturnType<typeof setTimeout> | undefined;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -70,7 +67,6 @@ app.innerHTML = `
           <button class="nav-item" data-action="new-chat">${icon('edit')}${tr('newChat')}<kbd>⌘ ⇧ O</kbd></button>
           <button class="nav-item" data-action="search">${icon('search')}${tr('searchChats')}<kbd>⌘ K</kbd></button>
           <button class="nav-item" data-action="inspiration">${icon('image')}${tr('inspiration')}<span class="new-badge" data-i18n="newBadge">${t('newBadge')}</span></button>
-          <button class="nav-item" data-action="personas">${icon('paw')}${tr('catPersonality')}</button>
         </nav>
         <div class="history-section">
           <h2 class="section-label" data-i18n="yourChats">${t('yourChats')}</h2>
@@ -101,7 +97,7 @@ app.innerHTML = `
 
       <div class="chat-scroll" id="chat-scroll">
         <section class="welcome" id="welcome">
-          <div class="welcome-cat">${avatar()}<span class="hello-bubble" data-i18n="hello">${t('hello')}</span><span class="welcome-beer" aria-hidden="true">🍺</span></div>
+          <div class="welcome-cat">${avatar()}<span class="hello-bubble" data-i18n="hello">${t('hello')}</span></div>
           <h1 id="welcome-title">${t('welcomeTitle')}</h1>
           <p id="welcome-subtitle">${t('welcomeSubtitle')}</p>
         </section>
@@ -117,7 +113,6 @@ app.innerHTML = `
             <div class="composer-tools">
               ${actionButton('plus', 'addInspiration', 'add', 'id="add-trigger" aria-haspopup="true" aria-expanded="false"')}
               <button class="tools-button" type="button" data-action="tools" id="tools-trigger" aria-haspopup="true" aria-expanded="false">${icon('sliders')}${tr('tools')}</button>
-              <button class="tools-button mood-trigger" type="button" data-action="personas" id="mood-trigger" aria-haspopup="dialog">${icon('paw')}<span class="mood-label"></span></button>
               <span class="thinking-chip" id="thinking-chip" hidden>${icon('sparkles')}${tr('deepThinking')}<button type="button" data-action="clear-thinking" ${attr('aria-label', 'closeThinking')}>${icon('x')}</button></span>
             </div>
             <div class="composer-send">
@@ -177,7 +172,6 @@ function applyLanguage(): void {
       case 'settings': showSettings(); break;
       case 'about': showAbout(); break;
       case 'inspiration': inspiration(); break;
-      case 'personas': showPersonas(); break;
       case 'delete-chat': confirmDeleteChat(dialog.dataset.chatId ?? ''); break;
       case 'clear-chats': confirmClearChats(); break;
       case 'search': {
@@ -247,12 +241,11 @@ function renderMessages(scrollToBottom = true): void {
   messageList.innerHTML = chat?.messages.map((message) => {
     if (message.role === 'user') return `<article class="message user-message" aria-label="${t('you')}"><div class="user-bubble">${escapeHtml(message.content)}</div></article>`;
     const pending = message.id === pendingId;
-    const messagePersona = isPersona(message.persona) ? message.persona : 'classic';
     const thought = catThought(message.thoughtId, getLanguage());
     return `<article class="message assistant-message" aria-label="CatGpt">
       <div class="assistant-avatar ${message.drinking ? 'drinking-avatar' : ''}">${avatar()}${message.drinking ? '<span aria-hidden="true">🍺</span>' : ''}</div>
       <div class="assistant-body">
-        <div class="assistant-name">CatGpt<span>${personaName(messagePersona, getLanguage())}</span>${message.drinking ? `<span class="beer-badge">${t('beerMoment')}</span>` : ''}</div>
+        <div class="assistant-name">CatGpt${message.drinking ? `<span class="beer-badge">${t('beerMoment')}</span>` : ''}</div>
         ${!pending && message.thinking ? `<p class="thought-result">${thought.done}</p>` : ''}
         <div class="assistant-content" ${pending ? `aria-label="${t('thinkingAria')}" aria-busy="true"` : ''}>${pending ? '<span class="typing-indicator"><i></i><i></i><i></i></span>' : escapeHtml(message.content)}</div>
         ${pending ? `<div class="thinking-label">${message.thinking ? thought.pending : t('thinkingLabel')}</div>` : `<div class="message-actions">
@@ -281,11 +274,6 @@ function updateComposer(): void {
   button.innerHTML = icon(pendingId ? 'stop' : textarea.value.trim() ? 'arrow' : 'wave');
   document.querySelector<HTMLElement>('#thinking-chip')!.hidden = model !== 'thinking';
   document.querySelector('#model-trigger > span')!.textContent = model === 'thinking' ? 'CatGpt Thinking' : 'CatGpt';
-  const moodName = personaName(persona, getLanguage());
-  const moodTrigger = document.querySelector<HTMLButtonElement>('#mood-trigger')!;
-  moodTrigger.querySelector('.mood-label')!.textContent = moodName;
-  moodTrigger.ariaLabel = t('currentPersonality', { name: moodName });
-  moodTrigger.title = moodTrigger.ariaLabel;
 }
 
 function finishReply(): void {
@@ -298,14 +286,14 @@ function createAssistantMessage(chat: Chat, input: string, beforeIndex = chat.me
   const previous = chat.messages.slice(0, beforeIndex);
   const recentReplies = chat.messages.filter((message) => message.role === 'assistant');
   const reply = createCatReply({
-    input, persona, language: getLanguage(),
+    input, language: getLanguage(),
     previousPrompts: previous.filter((message) => message.role === 'user').map((message) => message.content),
     recentReplies: recentReplies.map((message) => message.content),
     previousWasDrinking: recentReplies.at(-1)?.drinking,
   });
   return {
     id: crypto.randomUUID(), role: 'assistant', content: reply.content,
-    persona: reply.persona, replyId: reply.id, drinking: reply.drinking,
+    replyId: reply.id, drinking: reply.drinking,
     thinking: model === 'thinking', thoughtId: reply.thoughtId,
   };
 }
@@ -448,7 +436,6 @@ function showSettings(): void {
   const languagePreference = getLanguagePreference();
   showDialog(t('settings'), `<div class="settings-body">
     <div class="setting-row"><span>${t('language')}</span><select id="language-select" aria-label="${t('language')}"><option value="system" ${languagePreference === 'system' ? 'selected' : ''}>${t('automaticLanguage')}</option><option value="zh-CN" ${languagePreference === 'zh-CN' ? 'selected' : ''}>简体中文</option><option value="en" ${languagePreference === 'en' ? 'selected' : ''}>English</option></select></div>
-    <div class="setting-row"><span>${t('catPersonality')}</span><select id="persona-select" aria-label="${t('catPersonality')}">${PERSONAS.map((item) => `<option value="${item.id}" ${item.id === persona ? 'selected' : ''}>${item.emoji} ${item.name[getLanguage()]}</option>`).join('')}</select></div>
     <div class="setting-row"><span>${t('appearance')}</span><select id="theme-select" aria-label="${t('theme')}"><option value="system" ${theme === 'system' ? 'selected' : ''}>${t('systemTheme')}</option><option value="light" ${theme === 'light' ? 'selected' : ''}>${t('light')}</option><option value="dark" ${theme === 'dark' ? 'selected' : ''}>${t('dark')}</option></select></div>
     <div class="setting-row"><span>${t('exportChats')}</span><button class="secondary-button" data-action="export">${icon('download')}${t('export')}</button></div>
     <div class="setting-row"><span>${t('deleteAllChats')}</span><button class="secondary-button danger-text" data-action="confirm-clear">${icon('trash')}${t('deleteAll')}</button></div>
@@ -462,24 +449,6 @@ function showAbout(): void {
 
 function inspiration(): void {
   showDialog(t('inspirationTitle'), `<p class="dialog-description">${t('inspirationDescription')}</p><div class="inspiration-grid">${prompts.map((prompt, index) => `<button data-action="use-prompt" data-index="${index}">${icon(prompt.icon, prompt.color)}<strong>${prompt.label}</strong><span>${prompt.prompt}</span></button>`).join('')}</div>`, '', 'inspiration');
-}
-
-function showPersonas(): void {
-  const language = getLanguage();
-  showDialog(t('catPersonality'), `<p class="dialog-description">${t('personalityDescription', { count: PHRASE_COUNT })}</p><div class="persona-grid">${PERSONAS.map((item) => `<button class="persona-card" data-action="set-persona" data-persona="${item.id}" aria-pressed="${item.id === persona}"><span class="persona-emoji" aria-hidden="true">${item.emoji}</span><strong>${item.name[language]}</strong><span class="persona-description">${item.description[language]}</span>${item.id === persona ? icon('check', 'persona-check') : ''}</button>`).join('')}</div><p class="persona-footnote">${t('beerEggHint')}</p>`, '', 'personas');
-}
-
-function changePersona(value: string): void {
-  if (!isPersona(value)) return;
-  persona = value;
-  writeSetting('catgpt.persona', persona);
-  const inSettings = dialog.open && dialog.dataset.view === 'settings';
-  if (inSettings) showSettings();
-  else closeDialog();
-  closePopover();
-  updateComposer();
-  if (inSettings) document.querySelector<HTMLSelectElement>('#persona-select')?.focus();
-  toast(t('personalityChanged', { name: personaName(persona, getLanguage()) }));
 }
 
 function confirmDeleteChat(id: string): void {
@@ -599,8 +568,6 @@ app.addEventListener('click', (event) => {
     case 'suggest': submitMessage(prompts[Number(target.dataset.index)]?.prompt); break;
     case 'use-prompt': setPrompt(Number(target.dataset.index)); break;
     case 'inspiration': inspiration(); break;
-    case 'personas': showPersonas(); break;
-    case 'set-persona': changePersona(target.dataset.persona ?? ''); break;
     case 'meow': void meow(id); break;
     case 'stop': finishReply(); break;
     case 'copy': void copyReply(id); break;
@@ -644,7 +611,6 @@ app.addEventListener('change', (event) => {
     const value = (event.target as HTMLSelectElement).value;
     if (value === 'system' || value === 'zh-CN' || value === 'en') changeLanguage(value);
   }
-  if ((event.target as HTMLElement).id === 'persona-select') changePersona((event.target as HTMLSelectElement).value);
 });
 document.addEventListener('click', (event) => {
   const target = event.target as HTMLElement;

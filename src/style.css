@@ -124,7 +124,6 @@ kbd { font-family: inherit; font-size: 11px; color: var(--faint); opacity: 0; tr
 .welcome-cat { display: inline-flex; position: relative; margin-bottom: 19px; }
 .welcome-cat > .cat-avatar { width: 76px; height: 76px; box-shadow: 0 0 0 1px #00000007; }
 .hello-bubble { position: absolute; right: -30px; top: -1px; font-size: 11px; color: var(--muted); background: var(--sidebar); border: 1px solid var(--border); padding: 5px 9px; border-radius: 10px 10px 10px 1px; transform: rotate(8deg); }
-.welcome-beer { position: absolute; right: -3px; bottom: -2px; display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg); font-size: 16px; transform: rotate(10deg); }
 .welcome h1 { font-size: 30px; letter-spacing: -.8px; font-weight: 550; line-height: 1.5; margin: 0; }
 .welcome p { color: var(--muted); margin: 10px 0 0; font-size: 13px; letter-spacing: .4px; }
 .composer-dock { width: min(100% - 56px, 768px); margin: 0 auto; flex-shrink: 0; }
@@ -138,8 +137,6 @@ kbd { font-family: inherit; font-size: 11px; color: var(--faint); opacity: 0; tr
 .tools-button { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; padding: 7px 10px; border-radius: 20px; flex-shrink: 0; }
 .tools-button:hover { background: var(--hover); color: var(--text); }
 .tools-button > .icon { width: 17px; height: 17px; }
-.mood-trigger { max-width: 150px; color: #a57a40; }
-.mood-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .composer-send { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .input-hint { font-size: 10px; color: var(--faint); }
 .send-button { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 50%; background: var(--button-bg); color: var(--button-text); transition: opacity .15s, transform .15s; }
@@ -258,15 +255,6 @@ dialog::backdrop { background: #0006; backdrop-filter: blur(3px); }
 .inspiration-grid > button:hover { background: var(--hover); }
 .inspiration-grid strong { font-size: 12px; font-weight: 550; }
 .inspiration-grid span { font-size: 10px; color: var(--muted); line-height: 1.8; }
-.persona-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 24px; }
-.persona-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; text-align: left; padding: 16px; border: 1px solid var(--border); border-radius: 14px; }
-.persona-card:hover { background: var(--hover); }
-.persona-card[aria-pressed="true"] { border-color: #b99156; background: #d8ad5610; }
-.persona-emoji { font-size: 22px; }
-.persona-card strong { font-size: 13px; font-weight: 550; }
-.persona-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; font-size: 11px; line-height: 1.7; color: var(--muted); overflow-wrap: anywhere; }
-.persona-check { position: absolute; top: 16px; right: 13px; width: 16px; height: 16px; color: #b99156; }
-.persona-footnote { padding: 0 24px; margin: 18px 0 22px; font-size: 10px; line-height: 1.9; color: var(--muted); }
 .toast { position: fixed; z-index: 100; left: 50%; bottom: max(36px, env(safe-area-inset-bottom)); max-width: calc(100vw - 40px); padding: 12px 20px; border-radius: 13px; box-shadow: 0 5px 25px #0002; background: var(--button-bg); color: var(--button-text); font-size: 12px; line-height: 1.7; text-align: center; opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity .2s, transform .2s; }
 .toast.visible { opacity: 1; transform: translate(-50%, 0); }
 
@@ -346,12 +334,6 @@ dialog::backdrop { background: #0006; backdrop-filter: blur(3px); }
   .welcome h1 { font-size: 25px; }
   .welcome p { margin-top: 6px; }
   .home-bottom-label { display: none; }
-}
-
-@media (max-width: 420px) {
-  .mood-trigger { padding: 7px; }
-  .mood-trigger .mood-label { display: none; }
-  .persona-card { padding: 13px; }
 }
 
 @media (max-height: 520px) {

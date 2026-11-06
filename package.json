@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "The beer cat at catgpt.bar. Bilingual cat personalities, meows, and the occasional cheers.",
+  "description": "Random bilingual meows and the occasional cheers at catgpt.bar. Frontend only.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",

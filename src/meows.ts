@@ -1,29 +1,9 @@
 import { REPLY } from './store.ts';
 import type { Language } from './i18n';
 
-export type Persona = 'bar' | 'cuddly' | 'sassy' | 'grumpy' | 'sleepy' | 'philosopher' | 'tipsy' | 'classic';
 type Localized = { 'zh-CN': string; en: string };
 type Phrase = { id: string } & Localized;
 const line = (id: string, zh: string, en: string): Phrase => ({ id, 'zh-CN': zh, en });
-
-export const PERSONAS: { id: Persona; emoji: string; name: Localized; description: Localized }[] = [
-  { id: 'bar', emoji: '🐈', name: { 'zh-CN': '酒馆猫', en: 'Bar cat' }, description: { 'zh-CN': '看心情营业，偶尔偷偷喝一口。', en: 'New mood. Occasional sip.' } },
-  { id: 'cuddly', emoji: '🥺', name: { 'zh-CN': '黏人猫', en: 'Cuddly cat' }, description: { 'zh-CN': '问题可以不懂，贴贴不能没有。', en: 'No answers. Plenty of cuddles.' } },
-  { id: 'sassy', emoji: '😼', name: { 'zh-CN': '傲娇猫', en: 'Sassy cat' }, description: { 'zh-CN': '才没有在等你，刚好路过而已。', en: 'Not waiting. Just passing by.' } },
-  { id: 'grumpy', emoji: '😾', name: { 'zh-CN': '暴躁猫', en: 'Grumpy cat' }, description: { 'zh-CN': '脾气很大，爪子很短。', en: 'Big feelings. Tiny paws.' } },
-  { id: 'sleepy', emoji: '😴', name: { 'zh-CN': '困困猫', en: 'Sleepy cat' }, description: { 'zh-CN': '每天睡二十五个小时。', en: 'Sleeps twenty-five hours a day.' } },
-  { id: 'philosopher', emoji: '🧐', name: { 'zh-CN': '哲学猫', en: 'Philosopher' }, description: { 'zh-CN': '我喵，故我在。', en: 'I meow, therefore I am.' } },
-  { id: 'tipsy', emoji: '🍺', name: { 'zh-CN': '微醺猫', en: 'Tipsy cat' }, description: { 'zh-CN': 'catgpt.bar 常驻嘉宾，举爪碰杯。', en: 'The bar regular. Paws up, cheers.' } },
-  { id: 'classic', emoji: '🐱', name: { 'zh-CN': '经典模式', en: 'Classic' }, description: { 'zh-CN': '初心不改，永远只回 mewo～～🐱。', en: 'The original. Always exactly mewo～～🐱.' } },
-];
-
-export function isPersona(value: unknown): value is Persona {
-  return PERSONAS.some((persona) => persona.id === value);
-}
-
-export function personaName(persona: Persona, language: Language): string {
-  return PERSONAS.find((item) => item.id === persona)!.name[language];
-}
 
 const cuddly = [
   line('cuddle-01', '喵呜～先蹭蹭你 🥺', 'Mrrp～ first, a little nuzzle 🥺'),
@@ -244,9 +224,9 @@ const rules: { pattern: RegExp; pool: Phrase[] }[] = [
   { pattern: /^(?:你好|您好|嗨|哈喽|早上好|下午好|晚上好|hi|hello|hey|howdy)[!！?？。.\s]*$/i, pool: topics.greeting },
 ];
 const beerWords = /啤酒|干杯|喝酒|喝一杯|碰杯|酒馆|下班|微醺|🍺|🍻|\b(?:beer|cheers|lager|pints?|pub|bar|happy\s+hour|after\s+work|grab\s+a\s+drink)\b/i;
-const personaPools = { cuddly, sassy, grumpy, sleepy, philosopher, tipsy: beer };
+const everyday = [line('original', REPLY, REPLY), ...cuddly, ...sassy, ...grumpy, ...sleepy, ...philosopher];
 export const BEER_EGG_CHANCE = 0.12;
-export const PHRASE_COUNT = new Set([...Object.values(personaPools).flat(), ...Object.values(topics).flat()].map((phrase) => phrase.id)).size;
+export const PHRASE_COUNT = new Set([...everyday, ...beer, ...Object.values(topics).flat()].map((phrase) => phrase.id)).size;
 
 const thoughts = [
   { id: 'box', pending: line('', '正在检查纸箱的猫体工学…', 'Checking the box’s feline ergonomics…'), done: line('', '认真思考了 3 秒，决定钻进纸箱。', 'Thought for 3 seconds. Decided to climb into a box.') },
@@ -269,7 +249,6 @@ export function catThought(id: string | undefined, language: Language): { pendin
 
 export interface ReplyContext {
   input: string;
-  persona: Persona;
   language: Language;
   previousPrompts?: string[];
   recentReplies?: string[];
@@ -280,7 +259,6 @@ export interface ReplyContext {
 export interface CatReply {
   id: string;
   content: string;
-  persona: Persona;
   drinking: boolean;
   thoughtId: string;
 }
@@ -289,8 +267,7 @@ export function createCatReply(context: ReplyContext): CatReply {
   const random = context.random ?? Math.random;
   const pick = <T>(items: readonly T[]): T => items[Math.floor(Math.max(0, Math.min(0.999999, random())) * items.length)];
   const normalize = (value: string) => value.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
-  if (context.persona === 'classic') return { id: 'classic', content: REPLY, persona: 'classic', drinking: false, thoughtId: 'box' };
-  const drinking = beerWords.test(context.input) || context.persona === 'tipsy' ||
+  const drinking = beerWords.test(context.input) ||
     (!context.previousWasDrinking && random() < BEER_EGG_CHANCE);
   let pool: Phrase[];
   if (drinking) pool = beer;
@@ -298,13 +275,12 @@ export function createCatReply(context: ReplyContext): CatReply {
   else if (context.input.length > 280) pool = topics.long;
   else {
     const topic = rules.find((rule) => rule.pattern.test(context.input));
-    const persona = context.persona === 'bar' ? pick(['cuddly', 'sassy', 'grumpy', 'sleepy', 'philosopher'] as const) : context.persona;
-    pool = topic?.pool ?? personaPools[persona];
+    pool = topic?.pool ?? everyday;
   }
   const recent = context.recentReplies?.slice(-12) ?? [];
   const unused = pool.filter((phrase) => !recent.includes(phrase[context.language]));
   const notLast = pool.filter((phrase) => phrase[context.language] !== recent.at(-1));
   const phrase = pick(unused.length ? unused : notLast.length ? notLast : pool);
   const thought = pick(thoughts.filter((item) => item.id.startsWith('beer-') === drinking));
-  return { id: phrase.id, content: phrase[context.language], persona: context.persona, drinking, thoughtId: thought.id };
+  return { id: phrase.id, content: phrase[context.language], drinking, thoughtId: thought.id };
 }

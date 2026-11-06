@@ -5,7 +5,6 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  persona?: string;
   replyId?: string;
   drinking?: boolean;
   thinking?: boolean;
@@ -49,7 +48,7 @@ export function loadChats(): Chat[] {
           const item = message as Record<string, unknown>;
           return typeof item.id === 'string' && typeof item.content === 'string' &&
             (item.role === 'user' || item.role === 'assistant') &&
-            ['persona', 'replyId', 'thoughtId'].every((key) => item[key] === undefined || typeof item[key] === 'string') &&
+            ['replyId', 'thoughtId'].every((key) => item[key] === undefined || typeof item[key] === 'string') &&
             ['drinking', 'thinking'].every((key) => item[key] === undefined || typeof item[key] === 'boolean');
         });
     }).sort((a, b) => b.updatedAt - a.updatedAt);
